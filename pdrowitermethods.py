@@ -10,10 +10,30 @@ class PdRowIterMethods:
     3. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
     4. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
     5. DataFrame の values 属性を使う
-    6. DataFrame の itertuples メソッドを使う
-    7. DataFrame の 対象列を抜き出して zip で結合して処理を行う
+    6. DataFrame の to_numpy メソッドを使う
+    7. DataFrame の itertuples メソッドを使う
+    8. DataFrame の 対象列を抜き出して zip で結合して処理を行う
 
     結論: 上記の昇順に処理時間が短くなる。itertuples メソッドを使うか、zip を使う方法がお勧め。iterrows は使わないほうがよい。
+
+
+    ## 参考: プログラムが遅い原因を調べる方法
+
+        - https://note.com/navitime_tech/n/nce5d5f50af95#JjjM9
+
+    ### cProfile を使う
+
+    ```
+    python -m cProfile -s tottime pdrowitermethods.py > profile.txt
+    ```
+
+    ### SnakeViz で cProfile のデータを可視化する
+
+    ```
+    pip install snakeviz
+    python -m cProfile -o snakeviz.prof pdrowitermethods.py
+    snakeviz snakeviz.prof
+    ```
     """
 
     def make_data(self, iter_num: int = 100000) -> pd.DataFrame:
@@ -54,7 +74,7 @@ class PdRowIterMethods:
         # result = []
         # for record in records:
         #     result.append(self.classify(record["colA"], record["colB"], record["colC"]))
-        # リスト内包表記の方が 8% 程度早い
+        # 通常の for文（上記）よりもリスト内包表記の方が 8% 程度早い
         result = [
             self.classify(record["colA"], record["colB"], record["colC"])
             for record in records
@@ -71,7 +91,7 @@ class PdRowIterMethods:
         df.iterrows() を使わないほうがよい。
         https://stackoverflow.com/questions/16476924/how-can-i-iterate-over-rows-in-a-pandas-dataframe?rq=1
         """
-        # for文よりもリスト内包表記にしたほうが 10% くらい時間が短縮できる
+        # for文よりもリスト内包表記にしたほうが 10% 高速になる
         result = [self.classify(*x) for x in zip(df["colA"], df["colB"], df["colC"])]
         df_ret = df.copy()
         df_ret["colR"] = result
@@ -86,7 +106,9 @@ class PdRowIterMethods:
         https://stackoverflow.com/questions/16476924/how-can-i-iterate-over-rows-in-a-pandas-dataframe?rq=1
         """
         df_ret = df.copy()
-        result = df_ret.apply(lambda x: self.classify(*x), axis=1)
+        # result = df_ret.apply(lambda x: self.classify(*x), axis=1)
+        # apply メソッドに raw=True オプションを指定すると Numpy array として処理するので 46% 高速になる
+        result = df_ret.apply(lambda x: self.classify(*x), axis=1, raw=True)
         df_ret["colR"] = result
         return df_ret
 
@@ -116,7 +138,7 @@ class PdRowIterMethods:
         """
         df_ret = df.copy()
         result = []
-        # name=None にすると NamedTuples ではなく通常の tuple になり、30% くらい高速になる。
+        # name=None にすると NamedTuples ではなく通常の tuple になり、30% 高速になる。
         # for _id, a, b, c in df_ret.itertuples(name=None):
         #     # _id, a, b, c = row row[1], row[2], row[3]
         #     result.append(self.classify(a, b, c))
@@ -136,9 +158,7 @@ class PdRowIterMethods:
         https://stackoverflow.com/questions/16476924/how-can-i-iterate-over-rows-in-a-pandas-dataframe?rq=1
         """
         df_ret = df.copy()
-        map_column_and_index = {}
-        for index, column in enumerate(df_ret.columns, 0):
-            map_column_and_index[column] = index
+        # map_col_to_idx = {column: index for index, column in enumerate(df_ret.columns)}
         # result = []
         # for row in df_ret.values:
         #     a, b, c = (
@@ -148,14 +168,20 @@ class PdRowIterMethods:
         #     )
         #     result.append(self.classify(a, b, c))
         # for文をリスト内包表記にすると 12% 高速になる
-        result = [
-            self.classify(
-                row[map_column_and_index["colA"]],
-                row[map_column_and_index["colB"]],
-                row[map_column_and_index["colC"]],
-            )
-            for row in df_ret.values
-        ]
+        result = [self.classify(row[0], row[1], row[2]) for row in df_ret.values]
+        df_ret["colR"] = result
+        return df_ret
+
+    def iterating_rows_df_as_df_with_to_numpy(self, df: pd.DataFrame):
+        """DataFrame を row ごとに処理する - DataFrame の to_numpy メソッドを使う
+
+        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
+
+        df.iterrows() を使わないほうがよい。
+        https://stackoverflow.com/questions/16476924/how-can-i-iterate-over-rows-in-a-pandas-dataframe?rq=1
+        """
+        df_ret = df.copy()
+        result = [self.classify(row[0], row[1], row[2]) for row in df_ret.to_numpy()]
         df_ret["colR"] = result
         return df_ret
 
@@ -210,11 +236,29 @@ def timeit(func, iter_num: int = 5):
     return my_func
 
 
-def main():
+def one():
+    """DataFrame の行ごとの判定結果を新しい列に書き込む処理を一つ実行する"""
+    # サンプルデータの繰り返し生成回数
+    iter_num = 100000
+    # Pandas のバージョンを確認
+    print("pandas version:", pd.__version__)
+    pddict = PdRowIterMethods()
+    # 実行対象のメソッド
+    d_func = pddict.iterating_rows_df_as_dict_with_from_dict
+    # d_func = pddict.iterating_rows_df_as_df_with_zip  # 最も早い
+
+    print("-- as_dict_with_from_dict")
+    df = pddict.make_data(iter_num)
+    print("df:", df.shape)
+    df_result: pd.DataFrame = d_func(df)
+    print("df_result:", df_result.shape)
+    print(df_result.head(6))
+
+
+def compare():
     """DataFrame の行ごとの判定結果を新しい列に書き込む処理について、複数の方法を比較する"""
     # サンプルデータの繰り返し生成回数
     iter_num = 100000
-    # iter_num = 100
     # Pandas のバージョンを確認
     print("pandas version:", pd.__version__)
     pddict = PdRowIterMethods()
@@ -223,9 +267,10 @@ def main():
     methods = {
         # "as_df_with_iterrows": pddict.iterating_rows_df_as_df_with_iterrows,  # 使わない
         "as_df_with_apply": pddict.iterating_rows_df_as_df_with_apply,  # 遅い
-        "as_dict_with_from_dict": pddict.iterating_rows_df_as_dict_with_from_dict,  # まあまあ
+        "as_dict_with_from_dict": pddict.iterating_rows_df_as_dict_with_from_dict,  # 元
         "as_dict_no_from_dict": pddict.iterating_rows_df_as_dict_no_from_dict,  # まあまあ
         "as_df_with_values": pddict.iterating_rows_df_as_df_with_values,  # 早い
+        "as_df_with_to_numpy": pddict.iterating_rows_df_as_df_with_to_numpy,  # 早い
         "as_df_with_itertuples": pddict.iterating_rows_df_as_df_with_itertuples,  # 早い
         "as_df_with_zip": pddict.iterating_rows_df_as_df_with_zip,  # 最も早い
     }
@@ -238,6 +283,11 @@ def main():
         df_result: pd.DataFrame = d_func(df)
         print("df_result:", df_result.shape)
         print(df_result.head(6))
+
+
+def main():
+    # one()
+    compare()
 
 
 if __name__ == "__main__":

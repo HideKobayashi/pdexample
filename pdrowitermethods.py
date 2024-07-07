@@ -274,29 +274,29 @@ class PdRowIterMethods:
         df_ret["colR"] = result
         return df_ret
 
-    def copy_only(self, df: pd.DataFrame):
+    def only_copy(self, df: pd.DataFrame):
         """copy only"""
         df_ret = df.copy()
         return df_ret
 
-    def copy_update_only(self, df: pd.DataFrame):
+    def only_copy_update(self, df: pd.DataFrame):
         """copy update only"""
         df_ret = df.copy()
         df_ret["colR"] = "dummy"
         return df_ret
 
-    def to_dict_only(self, df: pd.DataFrame):
+    def only_to_dict(self, df: pd.DataFrame):
         """copy only"""
         _ = df.to_dict()
         return df
 
-    def to_dict_newdf_only(self, df: pd.DataFrame):
+    def only_to_dict_newdf(self, df: pd.DataFrame):
         """to_dict newdf only"""
         _dict = df.to_dict()
         df_ret = pd.DataFrame(_dict)
         return df_ret
 
-    def to_dict_from_dict_only(self, df: pd.DataFrame):
+    def only_to_dict_from_dict(self, df: pd.DataFrame):
         """to_dict from_dict only"""
         _dict = df.to_dict()
         df_ret = pd.DataFrame.from_dict(_dict)
@@ -432,15 +432,11 @@ def compare_elements(pdrowiter: PdRowIterMethods):
         # "#5_2_to_dict_for_copy": pdrowiter.iter_rows_with_to_dict_for,  # まあまあ
         # "#5_3_to_dict_for_list_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf_list,
         "#5_4_to_dict_for_dict_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf,
-        # "#5_5_to_dict_for_dict_from_dict": pdrowiter.iter_rows_with_to_dict_and_from_dict,  # 元
-        # "#7_1_apply_raw_copy": pdrowiter.iter_rows_with_apply,  # 遅い
-        # "#7_2_apply_default_copy": pdrowiter.iter_rows_with_apply_default,  # 遅い
-        # "#8_1_iterrows_comp_copy": pdrowiter.iter_rows_with_iterrows,  # 使わない
-        "copy": pdrowiter.copy_only,
-        "copy_update": pdrowiter.copy_update_only,
-        "to_dict": pdrowiter.to_dict_only,
-        "to_dict_newdf": pdrowiter.to_dict_newdf_only,
-        "to_dict_from_dict": pdrowiter.to_dict_from_dict_only,
+        "copy": pdrowiter.only_copy,
+        "copy_update": pdrowiter.only_copy_update,
+        "to_dict": pdrowiter.only_to_dict,
+        "to_dict_newdf": pdrowiter.only_to_dict_newdf,
+        "to_dict_from_dict": pdrowiter.only_to_dict_from_dict,
     }
     # base_name = "#5_4_to_dict_for_dict_newdf"
     base_name = "#1_2_zip_comp_copy"

@@ -14,6 +14,20 @@ DataFrame の行ごとの値を参照する繰り返し処理を行う方法は�
 
 上記の 1〜7 は、処理時間が短いに昇順に並んでいる。1 が最も処理時間が短く、7 が最も長い。
 
+実測結果を下記に示す。
+
+```text
+report_df:
+                                name  timedelta_average      ratio
+0                #1_2_zip_comp_copy           0.140049   1.000000
+1  #2_1_itertuples_noname_comp_copy           0.159142   1.136329
+2           #3_1_to_numpy_comp_copy           0.214024   1.528209
+3            #5_1_to_dict_comp_copy           0.288543   2.060300
+4       #5_4_to_dict_for_dict_newdf           0.558035   3.984565
+5               #7_1_apply_raw_copy           0.682259   4.871570
+6           #8_1_iterrows_comp_copy           7.434999  53.088546
+```
+
 ## まとめ
 
 DataFrame の行ごとの値を参照して繰り返し処理を行うときに処理時間を短くするために気を付けること

@@ -20,35 +20,16 @@ class SampleData:
 class PdRowIterMethods:
     """DataFrame に関して、行ごとの値を参照して処理を行う方法の処理時間を比較
 
-    1. DataFrame の iterrows メソッドを使う
-    2. DataFrame の apply メソッドを使う
-    3. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
-    4. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
-    5. DataFrame の values 属性を使う
-    6. DataFrame の to_numpy メソッドを使う
-    7. DataFrame の itertuples メソッドを使う
-    8. DataFrame の 対象列を抜き出して zip で結合して処理を行う
+    1. DataFrame の 対象列を抜き出して zip で結合して処理を行う
+    2. DataFrame の itertuples メソッドを使う
+    3. DataFrame の to_numpy メソッドを使う
+    4. DataFrame の values 属性を使う
+    5. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
+    6. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
+    7. DataFrame の apply メソッドを使う
+    8. DataFrame の iterrows メソッドを使う
 
-    結論: 上記の昇順に処理時間が短くなる。itertuples メソッドを使うか、zip を使う方法がお勧め。iterrows は使わないほうがよい。
-
-
-    ## 参考: プログラムが遅い原因を調べる方法
-
-        - https://note.com/navitime_tech/n/nce5d5f50af95#JjjM9
-
-    ### cProfile を使う
-
-    ```
-    python -m cProfile -s tottime pdrowitermethods.py > profile.txt
-    ```
-
-    ### SnakeViz で cProfile のデータを可視化する
-
-    ```
-    pip install snakeviz
-    python -m cProfile -o snakeviz.prof pdrowitermethods.py
-    snakeviz snakeviz.prof
-    ```
+    結論: 上記の昇順に処理時間が長くなる。itertuples メソッドを使うか、zip を使う方法がお勧め。iterrows は使わないほうがよい。
     """
 
     def make_data(self, iter_num: int = 100000) -> pd.DataFrame:
@@ -118,23 +99,24 @@ class PdRowIterMethods:
         df_ret["colR"] = result
         return df_ret
 
-    def iter_rows_with_itertuples(self, df: pd.DataFrame):
+    def iter_rows_with_itertuples_named(self, df: pd.DataFrame):
         """DataFrame を row ごとに処理する - DataFrame の itertuples メソッドを使う
 
-                colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
-        s"""
+        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
+        """
         df_ret = df.copy()
         result = []
         for row in df_ret.itertuples():
-            result.append(PdRowIterMethods.classify(row[1], row[2], row[3]))
+            # result.append(PdRowIterMethods.classify(row[1], row[2], row[3]))
+            result.append(PdRowIterMethods.classify(row.colA, row.colB, row.colC))
         df_ret["colR"] = result
         return df_ret
 
     def iter_rows_with_itertuples_noname(self, df: pd.DataFrame):
         """DataFrame を row ごとに処理する - DataFrame の itertuples メソッドを使う
 
-                colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
-        s"""
+        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
+        """
         df_ret = df.copy()
         # name=None にすると NamedTuples ではなく通常の tuple になり、30% 高速になる。
         result = [
@@ -142,8 +124,6 @@ class PdRowIterMethods:
             for _id, a, b, c in df_ret.itertuples(name=None)
         ]
         df_ret["colR"] = result
-        return df_ret
-
         return df_ret
 
     def iter_rows_with_to_numpy(self, df: pd.DataFrame):
@@ -198,17 +178,6 @@ class PdRowIterMethods:
         df_ret["colR"] = result
         return df_ret
 
-    def iter_rows_with_to_dict_and_from_dict(self, df: pd.DataFrame) -> pd.DataFrame:
-        """DataFrame を row ごとに処理する - 辞書に変換してから処理して、終わったら辞書をDataFrameに変換
-
-        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
-        """
-        records = df.to_dict(orient="records")
-        for x in records:
-            x["colR"] = PdRowIterMethods.classify(x["colA"], x["colB"], x["colC"])
-        df_ret = pd.DataFrame.from_dict(records)
-        return df_ret
-
     def iter_rows_with_to_dict_and_newdf(self, df: pd.DataFrame) -> pd.DataFrame:
         """DataFrame を row ごとに処理する - 辞書に変換してから処理して、終わったら辞書をDataFrameに変換
 
@@ -218,6 +187,17 @@ class PdRowIterMethods:
         for x in records:
             x["colR"] = PdRowIterMethods.classify(x["colA"], x["colB"], x["colC"])
         df_ret = pd.DataFrame(records)
+        return df_ret
+
+    def iter_rows_with_to_dict_and_from_dict(self, df: pd.DataFrame) -> pd.DataFrame:
+        """DataFrame を row ごとに処理する - 辞書に変換してから処理して、終わったら辞書をDataFrameに変換
+
+        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
+        """
+        records = df.to_dict(orient="records")
+        for x in records:
+            x["colR"] = PdRowIterMethods.classify(x["colA"], x["colB"], x["colC"])
+        df_ret = pd.DataFrame.from_dict(records)
         return df_ret
 
     def iter_rows_with_to_dict_and_newdf_list(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -393,6 +373,21 @@ class PdRowIterMethods:
         print("\nreport_df:\n", report_df)
 
 
+def compare_selected(pdrowiter: PdRowIterMethods):
+    # 比較対象のメソッド
+    methods = {
+        "#1_2_zip_comp_copy": pdrowiter.iter_rows_with_zip,  # 最も早い
+        "#2_1_itertuples_noname_comp_copy": pdrowiter.iter_rows_with_itertuples_noname,
+        "#3_1_to_numpy_comp_copy": pdrowiter.iter_rows_with_to_numpy,  # 早い
+        "#5_1_to_dict_comp_copy": pdrowiter.iter_rows_with_to_dict,  # まあまあ
+        "#5_4_to_dict_for_dict_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf,
+        "#7_1_apply_raw_copy": pdrowiter.iter_rows_with_apply,  # 遅い
+        "#8_1_iterrows_comp_copy": pdrowiter.iter_rows_with_iterrows,  # 使わない
+    }
+    base_name = "#1_2_zip_comp_copy"
+    pdrowiter.compare(methods, base_name)
+
+
 def compare_methods(pdrowiter: PdRowIterMethods):
     # 比較対象のメソッド
     methods = {
@@ -401,36 +396,45 @@ def compare_methods(pdrowiter: PdRowIterMethods):
         "#1_3_zip_comp_newdf": pdrowiter.iter_rows_with_zip_new_df,  # 最も早い
         "#1_4_zip_for_copy": pdrowiter.iter_rows_with_zip_for,  # 最も早い
         "#2_1_itertuples_noname_comp_copy": pdrowiter.iter_rows_with_itertuples_noname,
-        "#2_2_itertuples_named_comp_copy": pdrowiter.iter_rows_with_itertuples,
+        "#2_2_itertuples_named_comp_copy": pdrowiter.iter_rows_with_itertuples_named,
         "#3_1_to_numpy_comp_copy": pdrowiter.iter_rows_with_to_numpy,  # 早い
         "#4_1_values_comp_copy": pdrowiter.iter_rows_with_values,  # 早い
         "#5_1_to_dict_comp_copy": pdrowiter.iter_rows_with_to_dict,  # まあまあ
         "#5_2_to_dict_for_copy": pdrowiter.iter_rows_with_to_dict_for,  # まあまあ
         "#5_3_to_dict_for_list_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf_list,
         "#5_4_to_dict_for_dict_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf,
-        "#5_5_to_dict_for_dict_from_dict": pdrowiter.iter_rows_with_to_dict_and_from_dict,  # 元
-        "#7_1_apply_raw_copy": pdrowiter.iter_rows_with_apply,  # 遅い
-        "#7_2_apply_default_copy": pdrowiter.iter_rows_with_apply_default,  # 遅い
-        "#8_1_iterrows_comp_copy": pdrowiter.iter_rows_with_iterrows,  # 使わない
+        # "#5_5_to_dict_for_dict_from_dict": pdrowiter.iter_rows_with_to_dict_and_from_dict,  # 元
+        # "#7_1_apply_raw_copy": pdrowiter.iter_rows_with_apply,  # 遅い
+        # "#7_2_apply_default_copy": pdrowiter.iter_rows_with_apply_default,  # 遅い
+        # "#8_1_iterrows_comp_copy": pdrowiter.iter_rows_with_iterrows,  # 使わない
     }
     base_name = "#1_2_zip_comp_copy"
     pdrowiter.compare(methods, base_name)
 
 
-def compare_elements(pdrowiter: PdRowIterMethods):
+def compare_zip_elements(pdrowiter: PdRowIterMethods):
     # 比較対象のメソッド
     methods = {
         "#1_1_zip_comp_update": pdrowiter.iter_rows_with_zip_update,  # 最も早い
         "#1_2_zip_comp_copy": pdrowiter.iter_rows_with_zip,  # 最も早い
-        # "#1_3_zip_comp_newdf": pdrowiter.iter_rows_with_zip_new_df,  # 最も早い
-        # "#1_4_zip_for_copy": pdrowiter.iter_rows_with_zip_for,  # 最も早い
-        # "#2_1_itertuples_noname_comp_copy": pdrowiter.iter_rows_with_itertuples_noname,
-        # "#2_2_itertuples_named_comp_copy": pdrowiter.iter_rows_with_itertuples,
-        # "#3_1_to_numpy_comp_copy": pdrowiter.iter_rows_with_to_numpy,  # 早い
-        # "#4_1_values_comp_copy": pdrowiter.iter_rows_with_values,  # 早い
+        "#1_4_zip_for_copy": pdrowiter.iter_rows_with_zip_for,  # 最も早い
+        "copy": pdrowiter.only_copy,
+        "copy_update": pdrowiter.only_copy_update,
+        "to_dict": pdrowiter.only_to_dict,
+        "to_dict_newdf": pdrowiter.only_to_dict_newdf,
+        "to_dict_from_dict": pdrowiter.only_to_dict_from_dict,
+    }
+    # base_name = "#5_4_to_dict_for_dict_newdf"
+    base_name = "#1_2_zip_comp_copy"
+    pdrowiter.compare(methods, base_name)
+
+
+def compare_todict_elements(pdrowiter: PdRowIterMethods):
+    # 比較対象のメソッド
+    methods = {
+        "#1_1_zip_comp_update": pdrowiter.iter_rows_with_zip_update,  # 最も早い
+        "#1_2_zip_comp_copy": pdrowiter.iter_rows_with_zip,  # 最も早い
         "#5_1_to_dict_comp_copy": pdrowiter.iter_rows_with_to_dict,  # まあまあ
-        # "#5_2_to_dict_for_copy": pdrowiter.iter_rows_with_to_dict_for,  # まあまあ
-        # "#5_3_to_dict_for_list_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf_list,
         "#5_4_to_dict_for_dict_newdf": pdrowiter.iter_rows_with_to_dict_and_newdf,
         "copy": pdrowiter.only_copy,
         "copy_update": pdrowiter.only_copy_update,
@@ -445,8 +449,9 @@ def compare_elements(pdrowiter: PdRowIterMethods):
 
 def main():
     pdrowiter = PdRowIterMethods()
+    # compare_selected(pdrowiter)
     compare_methods(pdrowiter)
-    compare_elements(pdrowiter)
+    # compare_elements(pdrowiter)
 
 
 if __name__ == "__main__":

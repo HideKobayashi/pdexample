@@ -6,14 +6,13 @@ DataFrame の行ごとの値を参照する繰り返し処理を行う方法は�
 
 1. DataFrame の 対象列を抜き出して zip で結合して処理を行う
 2. DataFrame の itertuples メソッドを使う
-3. DataFrame の to_numpy メソッドを使う
-4. DataFrame の values 属性を使う
-5. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
-6. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
-7. DataFrame の apply メソッドを使う
-8. DataFrame の iterrows メソッドを使う
+3. DataFrame の to_numpy メソッドまたは values 属性を使う
+4. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
+5. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
+6. DataFrame の apply メソッドを使う
+7. DataFrame の iterrows メソッドを使う
 
-上記の 1〜8 は、処理時間が短いに昇順に並んでいる。1 が最も処理時間が短く、8 が最も長い。
+上記の 1〜7 は、処理時間が短いに昇順に並んでいる。1 が最も処理時間が短く、7 が最も長い。
 
 ## まとめ
 
@@ -46,7 +45,7 @@ DataFrame の行ごとの値を参照して繰り返し処理を行うときに�
         - ①DataFrame から to_dict で辞書のリストに変換する、
         - ②行ごとに処理して処理結果で辞書を更新する、
         - ③更新された辞書を pd.DataFrame() で DataFrame に変換する 
-    - DataFrame から to_dict で辞書のリストに変換する処理が 23% を占めている。行ごとに処理結果で辞書を更新する処理が 21% 程度でそれと同程度の割合を占めている。
+    - DataFrame から to_dict で辞書のリストに変換する処理が 23% を占めている。
     - 辞書を pd.DataFrame() で DataFrame に変換する処理が 56% を占めている。 
 - #1_2_zip_comp_copy の場合、工程を三つに分けて処理時間の比を計測する。
     - ①, ②, ③ の処理にかかる時間の割合の比  ① : ② : ③ = 0.6 : 96.1 : 3.3
@@ -64,7 +63,26 @@ DataFrame の行ごとの値を参照して繰り返し処理を行うときに�
 - DataFrame に対する loop を高速化
     - https://qiita.com/siruku6/items/4bd337d80d7aaceae542#2-1-to_dictorientrecords---dataframe-%E3%81%AB%E5%AF%BE%E3%81%99%E3%82%8B-loop-%E3%82%92%E9%AB%98%E9%80%9F%E5%8C%96
 
+## 参考: 
 
+
+### プログラムが遅い原因を調べる方法
+
+- https://note.com/navitime_tech/n/nce5d5f50af95#JjjM9
+
+### cProfile を使う
+
+```
+python -m cProfile -s tottime pdrowitermethods.py > profile.txt
+```
+
+### SnakeViz で cProfile のデータを可視化する
+
+```
+pip install snakeviz
+python -m cProfile -o snakeviz.prof pdrowitermethods.py
+snakeviz snakeviz.prof
+```
 
 ## 実装例と実行時間の計測方法
 
@@ -122,7 +140,6 @@ class SampleData:
 
 ```python
 class PdRowIterMethods:
-    """DataFrame に関して、行ごとの値を参照して処理を行う方法の処理時間を比較"""
 
     def make_data(self, iter_num: int = 100000) -> pd.DataFrame:
         """DataFrame を作成する"""
@@ -134,21 +151,47 @@ class PdRowIterMethods:
 
 ```
 
-### 1. DataFrame の iterrows メソッドを使う
+### 1. DataFrame の 対象列を抜き出して zip で結合して処理を行う
 
-### 2. DataFrame の apply メソッドを使う
+結論だけ言うと、これが最も処理時間が短い。処理工程は、下記の３段階に分解できる。
 
-### 3. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
+1. 与えられたデータフレームをメモリ上でそのまま参照して処理を行い、処理結果はリストに格納する。
+2. 与えられたデータフレームを DataFrame.copy メソッドでコピーして戻り値のデータフレームを作成し、
+3. そこに新しい列を追加している。
 
-### 4. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
+あとで考察するが、2 の処理はごくわずかな時間、　3 の処理はわずかな時間しか消費していないため、処理時間の大部分は 1 の処理が占める。
 
-### 5. DataFrame の values 属性を使う
+```python
+    def iter_rows_with_zip(self, df: pd.DataFrame) -> pd.DataFrame:
+        """DataFrame を row ごとに処理する - DataFrame から列を抜き出し zip で結合して処理する
 
-### 6. DataFrame の to_numpy メソッドを使う
+        colA, colB, colC の値を使って判定を行い、判定結果を colR 列に保存して DataFrame に追加する
+        """
+        # for文よりもリスト内包表記にしたほうが 10% 高速になる
+        result = [
+            PdRowIterMethods.classify(*x)
+            for x in zip(df["colA"], df["colB"], df["colC"])
+        ]
+        df_ret = df.copy()
+        df_ret["colR"] = result
+        return df_ret
+```
 
-### 7. DataFrame の itertuples メソッドを使う
+### 2. DataFrame の itertuples メソッドを使う
 
-### 8. DataFrame の 対象列を抜き出して zip で結合して処理を行う
+
+
+### 3. DataFrame の to_numpy メソッドを使う
+
+### 4. DataFrame の values 属性を使う
+
+### 5. DataFrame を dict に変換して処理を行い結果のリストを作成、繰り返し終了後にDataFrameにカラム追加
+
+### 6. DataFrame を dict に変換して処理を行い結果を辞書に追加、繰り返し終了後に辞書をDataFrameに変換
+
+### 7. DataFrame の apply メソッドを使う
+
+### 8. DataFrame の iterrows メソッドを使う
 
 ```text
 pandas version: 2.2.0
